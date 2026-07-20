@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>INF Forum</title>
+    <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+    <div class="page">
+        <header class="site-header">
+            <h1>INF Forum</h1>
+            <p class="site-tagline">A plain, readable feed of topics.</p>
+        </header>
+
+        <main>
+            <section id="category-gate" class="panel">
+                <h2>Choose your categories</h2>
+                <p>Select at least 3 categories to enter the site.</p>
+                <form id="category-form">
+                    <div id="category-options" class="category-grid"></div>
+                    <p id="category-status" class="status">0 selected (minimum 3)</p>
+                    <button id="enter-button" type="submit" disabled>Enter</button>
+                </form>
+            </section>
+
+            <section id="content" class="content hidden">
+                <h2>Your feed</h2>
+                <div id="posts"></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="./app.js"></script>
+</body>
+</html>
