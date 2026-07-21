@@ -2,6 +2,10 @@
     box-sizing: border-box;
 }
 
+html {
+    scrollbar-gutter: stable;
+}
+
 body {
     margin: 0;
     font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -11,17 +15,29 @@ body {
 }
 
 .page {
-    width: min(680px, 100vw);
-    margin: 0 auto 3rem;
+    width: min(1080px, 100vw);
+    margin: 0 auto;
     border-left: 1px solid #2f3336;
     border-right: 1px solid #2f3336;
     min-height: 100vh;
     background: #000;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
 }
 
 .site-header {
-    border-bottom: 1px solid #2f3336;
-    padding: 0.9rem 1rem;
+    border-right: 1px solid #2f3336;
+    padding: 1rem 0.8rem;
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    background: #000;
+}
+
+.site-header-top {
+    display: block;
 }
 
 .site-header h1 {
@@ -30,9 +46,36 @@ body {
     font-weight: 700;
 }
 
+.site-nav {
+    margin-top: 0.7rem;
+    display: flex;
+    justify-content: flex-start;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.header-button {
+    border-color: #2f3336;
+    background: #111214;
+    color: #e7e9ea;
+    text-align: left;
+    border-radius: 10px;
+    padding: 0.55rem 0.85rem;
+    font-size: 0.82rem;
+}
+
+.header-button.active-nav {
+    border-color: #1d9bf0;
+    color: #1d9bf0;
+}
+
 .site-tagline {
     margin: 0.25rem 0 0;
     color: #71767b;
+}
+
+main {
+    min-width: 0;
 }
 
 .panel {
@@ -222,6 +265,34 @@ button:disabled {
     white-space: nowrap;
 }
 
+.profile-stats {
+    margin-top: 1rem;
+    border-top: 1px solid #2f3336;
+    padding-top: 0.8rem;
+    display: grid;
+    gap: 0.55rem;
+}
+
+.profile-stat {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #71767b;
+}
+
+.profile-stat strong {
+    color: #e7e9ea;
+    font-size: 0.95rem;
+}
+
+.danger-button {
+    margin-left: 0.6rem;
+    border-color: #cf222e;
+    background: transparent;
+    color: #f85149;
+}
+
 a {
     color: #1d9bf0;
     text-decoration: none;
@@ -233,4 +304,56 @@ a:hover {
 
 .scroll-sentinel {
     height: 1px;
+}
+
+@media (max-width: 820px) {
+    .page {
+        width: 100%;
+        display: block;
+        padding-bottom: 4.8rem;
+        border-left: none;
+        border-right: none;
+    }
+
+    .site-header {
+        position: static;
+        height: auto;
+        overflow: visible;
+        border-right: none;
+        border-bottom: 1px solid #2f3336;
+        padding: 0.9rem 1rem;
+    }
+
+    .site-nav {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        margin-top: 0;
+        padding: 0.5rem 0.6rem calc(0.5rem + env(safe-area-inset-bottom));
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.45rem;
+        background: #000;
+        border-top: 1px solid #2f3336;
+        z-index: 1000;
+    }
+
+    .header-button {
+        text-align: center;
+        border-radius: 999px;
+        padding: 0.45rem 0.5rem;
+        font-size: 0.8rem;
+    }
+
+    .post-footer {
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+
+    .post-interactions {
+        flex-wrap: wrap;
+        white-space: normal;
+        justify-content: flex-end;
+    }
 }

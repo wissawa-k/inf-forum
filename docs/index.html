@@ -9,7 +9,14 @@
 <body>
     <div class="page">
         <header class="site-header">
-            <h1>INF Forum</h1>
+            <div class="site-header-top">
+                <h1>INF Forum</h1>
+            </div>
+            <div class="site-nav">
+                <button id="feed-nav-button" type="button" class="header-button">Feed</button>
+                <button id="profile-nav-button" type="button" class="header-button">Profile</button>
+                <button id="info-nav-button" type="button" class="header-button">Information</button>
+            </div>
             <p class="site-tagline">Topic feed, one scroll at a time.</p>
         </header>
 
@@ -29,6 +36,30 @@
                 <p id="feed-status" class="feed-status"></p>
                 <div id="posts" class="feed"></div>
                 <div id="scroll-sentinel" class="scroll-sentinel"></div>
+            </section>
+
+            <section id="profile-page" class="panel hidden">
+                <h2>Your profile</h2>
+                <p>Edit preferred categories and view your usage stats.</p>
+                <form id="profile-form">
+                    <div id="profile-category-options" class="category-grid"></div>
+                    <p id="profile-category-status" class="status"></p>
+                    <button id="profile-save-button" type="submit">Save profile</button>
+                    <button id="profile-delete-button" type="button" class="danger-button">Delete saved data</button>
+                </form>
+                <div class="profile-stats">
+                    <p class="profile-stat"><span>Posts seen</span><strong id="profile-posts-seen">0</strong></p>
+                    <p class="profile-stat"><span>Time on site</span><strong id="profile-time-on-site">0m 0s</strong></p>
+                    <p class="profile-stat"><span>Sessions</span><strong id="profile-sessions">0</strong></p>
+                </div>
+            </section>
+
+            <section id="info-page" class="panel hidden">
+                <h2>Information</h2>
+                <p>
+                    This is a placeholder project description. INF Forum is a topic-based feed experience
+                    powered by Wikipedia content, with personalized category preferences and local profile storage.
+                </p>
             </section>
         </main>
     </div>

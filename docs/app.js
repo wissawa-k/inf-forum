@@ -1,13 +1,177 @@
 const MIN_SELECTED_CATEGORIES = 3;
 const FEED_BATCH_SIZE = 20;
+const PROFILE_STORAGE_KEY = "inf-forum-profile-v1";
+const STATS_FLUSH_INTERVAL_MS = 15000;
 
 let loadedDataset = null;
 let feedCursor = 0;
 let feedItems = [];
 let feedObserver = null;
+let profile = null;
+let seenPostIds = new Set();
+let sessionLastTickMs = Date.now();
+let sessionCarryMs = 0;
+let statsFlushTimer = null;
+let hasEnteredFeed = false;
+let feedCategorySelection = new Set();
+let profileCategorySelection = new Set();
+let currentView = "gate";
+let requestedPostId = null;
 
 function formatCount(value) {
     return new Intl.NumberFormat("en-US").format(Math.max(0, Number(value) || 0));
+}
+
+function formatDuration(totalSeconds) {
+    const seconds = Math.max(0, Number(totalSeconds) || 0);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hours > 0) {
+        return `${hours}h ${minutes}m ${secs}s`;
+    }
+    return `${minutes}m ${secs}s`;
+}
+
+function createDefaultProfile() {
+    return {
+        preferred_categories: [],
+        stats: {
+            seen_post_ids: [],
+            posts_seen_count: 0,
+            total_time_seconds: 0,
+            sessions: 0,
+            last_active_at: "",
+        },
+    };
+}
+
+function loadProfile() {
+    const fallback = createDefaultProfile();
+    try {
+        const raw = window.localStorage.getItem(PROFILE_STORAGE_KEY);
+        if (!raw) {
+            return fallback;
+        }
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object") {
+            return fallback;
+        }
+        const preferredCategories = Array.isArray(parsed.preferred_categories)
+            ? parsed.preferred_categories.filter(value => typeof value === "string")
+            : [];
+        const stats = parsed.stats && typeof parsed.stats === "object"
+            ? parsed.stats
+            : {};
+        const seenIds = Array.isArray(stats.seen_post_ids)
+            ? stats.seen_post_ids.map(value => String(value))
+            : [];
+        return {
+            preferred_categories: Array.from(new Set(preferredCategories)),
+            stats: {
+                seen_post_ids: Array.from(new Set(seenIds)),
+                posts_seen_count: Math.max(0, Number(stats.posts_seen_count) || 0),
+                total_time_seconds: Math.max(0, Number(stats.total_time_seconds) || 0),
+                sessions: Math.max(0, Number(stats.sessions) || 0),
+                last_active_at: typeof stats.last_active_at === "string" ? stats.last_active_at : "",
+            },
+        };
+    } catch {
+        return fallback;
+    }
+}
+
+function saveProfile() {
+    profile.stats.seen_post_ids = Array.from(seenPostIds);
+    profile.stats.posts_seen_count = profile.stats.seen_post_ids.length;
+    profile.stats.last_active_at = new Date().toISOString();
+    try {
+        window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+    } catch {
+        // Ignore storage failures so rendering still works.
+    }
+}
+
+function ensureStatsElementsUpdated() {
+    const postsSeen = document.getElementById("profile-posts-seen");
+    const timeOnSite = document.getElementById("profile-time-on-site");
+    const sessions = document.getElementById("profile-sessions");
+    if (postsSeen) {
+        postsSeen.textContent = formatCount(profile.stats.posts_seen_count);
+    }
+    if (timeOnSite) {
+        timeOnSite.textContent = formatDuration(profile.stats.total_time_seconds);
+    }
+    if (sessions) {
+        sessions.textContent = formatCount(profile.stats.sessions);
+    }
+}
+
+function updateSelectionState(statusElement, submitButton, selectedCount) {
+    statusElement.textContent = `${selectedCount} selected (minimum ${MIN_SELECTED_CATEGORIES})`;
+    submitButton.disabled = selectedCount < MIN_SELECTED_CATEGORIES;
+}
+
+function renderCategoryOptions(containerId, statusElement, submitButton, categories, preselected = []) {
+    const optionsContainer = document.getElementById(containerId);
+    const selected = new Set(preselected);
+    optionsContainer.innerHTML = "";
+
+    categories.forEach(category => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "category-option";
+
+        const label = document.createElement("label");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.name = "categories";
+        checkbox.value = category;
+        checkbox.checked = selected.has(category);
+
+        checkbox.addEventListener("change", () => {
+            if (checkbox.checked) {
+                selected.add(category);
+            } else {
+                selected.delete(category);
+            }
+            updateSelectionState(statusElement, submitButton, selected.size);
+        });
+
+        const text = document.createElement("span");
+        text.textContent = category;
+
+        label.append(checkbox, text);
+        wrapper.appendChild(label);
+        optionsContainer.appendChild(wrapper);
+    });
+
+    updateSelectionState(statusElement, submitButton, selected.size);
+    return selected;
+}
+
+function updateTimeStats() {
+    const now = Date.now();
+    const elapsed = Math.max(0, now - sessionLastTickMs);
+    sessionLastTickMs = now;
+    sessionCarryMs += elapsed;
+    const addSeconds = Math.floor(sessionCarryMs / 1000);
+    if (addSeconds > 0) {
+        profile.stats.total_time_seconds += addSeconds;
+        sessionCarryMs -= addSeconds * 1000;
+        saveProfile();
+        ensureStatsElementsUpdated();
+    }
+}
+
+function trackPostSeen(post) {
+    const postId = String(post.id ?? "");
+    if (!postId || seenPostIds.has(postId)) {
+        return;
+    }
+    seenPostIds.add(postId);
+    profile.stats.posts_seen_count = seenPostIds.size;
+    saveProfile();
+    ensureStatsElementsUpdated();
 }
 
 function createPostElement(item) {
@@ -95,20 +259,13 @@ function createPostElement(item) {
     return article;
 }
 
-function renderSinglePost(dataset, postId) {
-    const container = document.getElementById("posts");
-    const postsById = dataset.articles_by_id || dataset.posts_by_id || {};
-    container.innerHTML = "";
-    const post = postsById[postId];
-    if (!post) {
-        const missing = document.createElement("p");
-        missing.className = "feed-status";
-        missing.textContent = `Article id ${postId} was not found.`;
-        container.appendChild(missing);
-        return;
+async function ensureDatasetLoaded() {
+    if (loadedDataset) {
+        return loadedDataset;
     }
-
-    container.appendChild(createPostElement({ post, matchedCategories: post.categories || [] }));
+    const postsResponse = await fetch("./data/posts.json");
+    loadedDataset = await postsResponse.json();
+    return loadedDataset;
 }
 
 function buildFeedItems(dataset, selectedCategories) {
@@ -132,7 +289,7 @@ function buildFeedItems(dataset, selectedCategories) {
             seenIds.add(idKey);
             items.push({
                 post,
-                matchedCategories: (post.categories || []).filter(postCategory => selected.has(postCategory))
+                matchedCategories: (post.categories || []).filter(postCategory => selected.has(postCategory)),
             });
         });
     });
@@ -157,6 +314,23 @@ function updateFeedStatus() {
     status.textContent = "";
 }
 
+function renderSinglePost(dataset, postId) {
+    const container = document.getElementById("posts");
+    const postsById = dataset.articles_by_id || dataset.posts_by_id || {};
+    container.innerHTML = "";
+    const post = postsById[postId];
+    if (!post) {
+        const missing = document.createElement("p");
+        missing.className = "feed-status";
+        missing.textContent = `Article id ${postId} was not found.`;
+        container.appendChild(missing);
+        return;
+    }
+
+    trackPostSeen(post);
+    container.appendChild(createPostElement({ post, matchedCategories: post.categories || [] }));
+}
+
 function renderNextBatch() {
     const container = document.getElementById("posts");
     const sentinel = document.getElementById("scroll-sentinel");
@@ -174,7 +348,9 @@ function renderNextBatch() {
 
     const nextCursor = Math.min(feedCursor + FEED_BATCH_SIZE, feedItems.length);
     for (let index = feedCursor; index < nextCursor; index += 1) {
-        container.appendChild(createPostElement(feedItems[index]));
+        const item = feedItems[index];
+        trackPostSeen(item.post);
+        container.appendChild(createPostElement(item));
     }
     feedCursor = nextCursor;
     updateFeedStatus();
@@ -200,105 +376,215 @@ function initializeInfiniteScroll() {
     }, {
         root: null,
         rootMargin: "600px 0px",
-        threshold: 0.01
+        threshold: 0.01,
     });
 
     feedObserver.observe(sentinel);
 }
 
-function updateSelectionState(statusElement, submitButton, selectedCount) {
-    statusElement.textContent = `${selectedCount} selected (minimum ${MIN_SELECTED_CATEGORIES})`;
-    submitButton.disabled = selectedCount < MIN_SELECTED_CATEGORIES;
+function updateHeaderNav() {
+    const feedButton = document.getElementById("feed-nav-button");
+    const profileButton = document.getElementById("profile-nav-button");
+    const infoButton = document.getElementById("info-nav-button");
+    feedButton.classList.toggle("active-nav", currentView === "feed");
+    profileButton.classList.toggle("active-nav", currentView === "profile");
+    infoButton.classList.toggle("active-nav", currentView === "info");
 }
 
-function renderCategoryOptions(categories, statusElement, submitButton) {
-    const optionsContainer = document.getElementById("category-options");
-    const selected = new Set();
-    optionsContainer.innerHTML = "";
+function showView(view) {
+    const gate = document.getElementById("category-gate");
+    const content = document.getElementById("content");
+    const profilePage = document.getElementById("profile-page");
+    const infoPage = document.getElementById("info-page");
+    currentView = view;
+    if (view === "profile") {
+        gate.classList.add("hidden");
+        content.classList.add("hidden");
+        profilePage.classList.remove("hidden");
+        infoPage.classList.add("hidden");
+    } else if (view === "info") {
+        gate.classList.add("hidden");
+        content.classList.add("hidden");
+        profilePage.classList.add("hidden");
+        infoPage.classList.remove("hidden");
+    } else if (view === "feed") {
+        gate.classList.add("hidden");
+        content.classList.remove("hidden");
+        profilePage.classList.add("hidden");
+        infoPage.classList.add("hidden");
+    } else {
+        gate.classList.remove("hidden");
+        content.classList.add("hidden");
+        profilePage.classList.add("hidden");
+        infoPage.classList.add("hidden");
+    }
+    updateHeaderNav();
+}
 
-    categories.forEach(category => {
-        const wrapper = document.createElement("div");
-        wrapper.className = "category-option";
+async function openFeedWithCategories(selectedCategories) {
+    const categoryList = Array.from(new Set(selectedCategories));
+    if (categoryList.length < MIN_SELECTED_CATEGORIES && !requestedPostId) {
+        showView("gate");
+        return false;
+    }
 
-        const label = document.createElement("label");
+    const statusElement = document.getElementById("category-status");
+    statusElement.textContent = "Loading posts...";
 
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.name = "categories";
-        checkbox.value = category;
+    const dataset = await ensureDatasetLoaded();
+    const container = document.getElementById("posts");
+    container.innerHTML = "";
+    hasEnteredFeed = true;
+    showView("feed");
 
-        checkbox.addEventListener("change", () => {
-            if (checkbox.checked) {
-                selected.add(category);
-            } else {
-                selected.delete(category);
-            }
-            updateSelectionState(statusElement, submitButton, selected.size);
-        });
+    if (requestedPostId) {
+        renderSinglePost(dataset, requestedPostId);
+        document.getElementById("feed-status").textContent = "";
+        document.getElementById("scroll-sentinel").textContent = "";
+        return true;
+    }
 
-        const text = document.createElement("span");
-        text.textContent = category;
+    feedItems = buildFeedItems(dataset, categoryList);
+    feedCursor = 0;
+    renderNextBatch();
+    initializeInfiniteScroll();
+    return true;
+}
 
-        label.append(checkbox, text);
-        wrapper.appendChild(label);
-        optionsContainer.appendChild(wrapper);
+function setupSessionTracking() {
+    profile.stats.sessions += 1;
+    saveProfile();
+    ensureStatsElementsUpdated();
+    sessionLastTickMs = Date.now();
+    statsFlushTimer = window.setInterval(updateTimeStats, STATS_FLUSH_INTERVAL_MS);
+    window.addEventListener("beforeunload", updateTimeStats);
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+            updateTimeStats();
+        } else {
+            sessionLastTickMs = Date.now();
+        }
     });
-
-    updateSelectionState(statusElement, submitButton, selected.size);
-    return selected;
 }
 
 async function initializePage() {
-    const gate = document.getElementById("category-gate");
-    const content = document.getElementById("content");
-    const form = document.getElementById("category-form");
-    const statusElement = document.getElementById("category-status");
-    const submitButton = document.getElementById("enter-button");
-    const container = document.getElementById("posts");
-    const params = new URLSearchParams(window.location.search);
-    const queryId = params.get("id");
+    profile = loadProfile();
+    seenPostIds = new Set(profile.stats.seen_post_ids || []);
+    requestedPostId = new URLSearchParams(window.location.search).get("id");
 
     const categoriesResponse = await fetch("./data/categories.json");
-
     const categoriesData = await categoriesResponse.json();
-    const categories = categoriesData.categories || [];
-    const selected = renderCategoryOptions(categories, statusElement, submitButton);
+    const categories = Array.isArray(categoriesData.categories) ? categoriesData.categories : [];
 
-    form.addEventListener("submit", async event => {
+    const gateForm = document.getElementById("category-form");
+    const gateStatus = document.getElementById("category-status");
+    const gateSubmitButton = document.getElementById("enter-button");
+
+    const profileForm = document.getElementById("profile-form");
+    const profileStatus = document.getElementById("profile-category-status");
+    const profileSaveButton = document.getElementById("profile-save-button");
+    const profileDeleteButton = document.getElementById("profile-delete-button");
+    const renderProfileSelectors = preselected => {
+        feedCategorySelection = renderCategoryOptions(
+            "category-options",
+            gateStatus,
+            gateSubmitButton,
+            categories,
+            preselected
+        );
+        profileCategorySelection = renderCategoryOptions(
+            "profile-category-options",
+            profileStatus,
+            profileSaveButton,
+            categories,
+            preselected
+        );
+    };
+    renderProfileSelectors(profile.preferred_categories);
+    ensureStatsElementsUpdated();
+
+    gateForm.addEventListener("submit", async event => {
         event.preventDefault();
-        if (selected.size < MIN_SELECTED_CATEGORIES) {
-            updateSelectionState(statusElement, submitButton, selected.size);
+        if (feedCategorySelection.size < MIN_SELECTED_CATEGORIES && !requestedPostId) {
+            updateSelectionState(gateStatus, gateSubmitButton, feedCategorySelection.size);
             return;
         }
-
-        submitButton.disabled = true;
-        statusElement.textContent = "Loading posts...";
-
-        if (!loadedDataset) {
-            const postsResponse = await fetch("./data/posts.json");
-            loadedDataset = await postsResponse.json();
-        }
-
-        gate.classList.add("hidden");
-        content.classList.remove("hidden");
-
-        if (!container) {
-            return;
-        }
-        container.innerHTML = "";
-
-        if (queryId) {
-            renderSinglePost(loadedDataset, queryId);
-            document.getElementById("feed-status").textContent = "";
-            document.getElementById("scroll-sentinel").textContent = "";
-            return;
-        }
-
-        feedItems = buildFeedItems(loadedDataset, Array.from(selected));
-        feedCursor = 0;
-        renderNextBatch();
-        initializeInfiniteScroll();
+        const selectedCategories = Array.from(feedCategorySelection);
+        profile.preferred_categories = selectedCategories;
+        saveProfile();
+        await openFeedWithCategories(selectedCategories);
     });
+
+    profileForm.addEventListener("submit", async event => {
+        event.preventDefault();
+        if (profileCategorySelection.size < MIN_SELECTED_CATEGORIES) {
+            updateSelectionState(profileStatus, profileSaveButton, profileCategorySelection.size);
+            return;
+        }
+        profile.preferred_categories = Array.from(profileCategorySelection);
+        saveProfile();
+        renderProfileSelectors(profile.preferred_categories);
+        profileStatus.textContent = "Profile saved.";
+        ensureStatsElementsUpdated();
+    });
+    profileDeleteButton.addEventListener("click", () => {
+        const confirmed = window.confirm(
+            "Delete all saved profile data on this browser? This will remove preferred categories and stats."
+        );
+        if (!confirmed) {
+            return;
+        }
+
+        profile = createDefaultProfile();
+        seenPostIds = new Set();
+        feedItems = [];
+        feedCursor = 0;
+        hasEnteredFeed = false;
+        sessionCarryMs = 0;
+        sessionLastTickMs = Date.now();
+        requestedPostId = null;
+
+        try {
+            window.localStorage.removeItem(PROFILE_STORAGE_KEY);
+        } catch {
+            // Ignore storage cleanup failures.
+        }
+
+        renderProfileSelectors([]);
+        ensureStatsElementsUpdated();
+        document.getElementById("posts").innerHTML = "";
+        document.getElementById("feed-status").textContent = "";
+        document.getElementById("scroll-sentinel").textContent = "";
+        profileStatus.textContent = "Profile data deleted.";
+        showView("gate");
+    });
+
+    document.getElementById("profile-nav-button").addEventListener("click", () => {
+        showView("profile");
+        ensureStatsElementsUpdated();
+    });
+    document.getElementById("feed-nav-button").addEventListener("click", async () => {
+        if (!hasEnteredFeed && profile.preferred_categories.length < MIN_SELECTED_CATEGORIES && !requestedPostId) {
+            showView("gate");
+            return;
+        }
+        if (!hasEnteredFeed) {
+            await openFeedWithCategories(profile.preferred_categories);
+            return;
+        }
+        showView("feed");
+    });
+    document.getElementById("info-nav-button").addEventListener("click", () => {
+        showView("info");
+    });
+
+    setupSessionTracking();
+
+    if (requestedPostId || profile.preferred_categories.length >= MIN_SELECTED_CATEGORIES) {
+        await openFeedWithCategories(profile.preferred_categories);
+    } else {
+        showView("gate");
+    }
 }
 
 initializePage();
