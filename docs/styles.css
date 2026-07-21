@@ -200,9 +200,26 @@ button:disabled {
     padding: 0.1rem 0.52rem;
 }
 
+.post-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.72rem;
+}
+
 .post-link {
     display: inline-block;
-    margin-top: 0.72rem;
+}
+
+.post-interactions {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    color: #71767b;
+    font-size: 0.82rem;
+    white-space: nowrap;
 }
 
 a {

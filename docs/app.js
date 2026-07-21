@@ -6,6 +6,10 @@ let feedCursor = 0;
 let feedItems = [];
 let feedObserver = null;
 
+function formatCount(value) {
+    return new Intl.NumberFormat("en-US").format(Math.max(0, Number(value) || 0));
+}
+
 function createPostElement(item) {
     const post = item.post;
     const article = document.createElement("article");
@@ -66,11 +70,28 @@ function createPostElement(item) {
     source.rel = "noopener noreferrer";
     source.textContent = "Source";
 
+    const interactions = document.createElement("div");
+    interactions.className = "post-interactions";
+
+    const views = document.createElement("span");
+    views.className = "post-interaction";
+    views.textContent = `Views ${formatCount(post.view_count)}`;
+
+    const likes = document.createElement("span");
+    likes.className = "post-interaction";
+    likes.textContent = `Likes ${formatCount(post.like_count)}`;
+
+    interactions.append(views, likes);
+
+    const footer = document.createElement("div");
+    footer.className = "post-footer";
+    footer.append(source, interactions);
+
     article.appendChild(summary);
     if (image) {
         article.appendChild(image);
     }
-    article.appendChild(source);
+    article.appendChild(footer);
     return article;
 }
 
