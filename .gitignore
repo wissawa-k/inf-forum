@@ -1,0 +1,4 @@
+fetcher/__pycache__/
+__pycache__/
+*.py[cod]
+docs/data/backup_posts.json

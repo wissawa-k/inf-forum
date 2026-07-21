@@ -6,21 +6,6 @@ let feedCursor = 0;
 let feedItems = [];
 let feedObserver = null;
 
-function formatDate(timestamp) {
-    if (!timestamp) {
-        return "Unknown date";
-    }
-    const parsed = new Date(timestamp);
-    if (Number.isNaN(parsed.getTime())) {
-        return timestamp;
-    }
-    return parsed.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric"
-    });
-}
-
 function createPostElement(item) {
     const post = item.post;
     const article = document.createElement("article");
@@ -30,13 +15,19 @@ function createPostElement(item) {
     title.className = "post-header";
     title.textContent = `#${post.id} - ${post.title}`;
 
-    const metadata = document.createElement("p");
-    metadata.className = "post-meta";
-    metadata.textContent = formatDate(post.updated_at);
-
     const summary = document.createElement("p");
     summary.className = "post-summary";
     summary.textContent = post.summary;
+
+    const thumbnail = (post.thumbnail || "").trim();
+    let image = null;
+    if (thumbnail) {
+        image = document.createElement("img");
+        image.className = "post-thumbnail";
+        image.src = thumbnail;
+        image.alt = post.title || "Post thumbnail";
+        image.loading = "lazy";
+    }
 
     const tags = document.createElement("div");
     tags.className = "post-tags";
@@ -54,7 +45,10 @@ function createPostElement(item) {
     source.rel = "noopener noreferrer";
     source.textContent = "Source";
 
-    article.append(title, metadata, summary);
+    article.append(title, summary);
+    if (image) {
+        article.appendChild(image);
+    }
     if (item.matchedCategories.length > 0) {
         article.appendChild(tags);
     }

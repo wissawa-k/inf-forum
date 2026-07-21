@@ -139,6 +139,14 @@ button:disabled {
     color: #e7e9ea;
 }
 
+.post-thumbnail {
+    margin-top: 0.7rem;
+    width: 100%;
+    border-radius: 14px;
+    border: 1px solid #2f3336;
+    display: block;
+}
+
 .post-tags {
     margin-top: 0.65rem;
     display: flex;
