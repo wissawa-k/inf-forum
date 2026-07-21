@@ -37,13 +37,23 @@ body {
 }
 
 .site-header-top {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
 }
 
 .site-header h1 {
     margin: 0;
     font-size: 1.25rem;
     font-weight: 700;
+}
+
+.site-logo {
+    width: 2.4rem;
+    height: 2.4rem;
+    display: block;
+    object-fit: contain;
+    flex: 0 0 auto;
 }
 
 .site-nav {
