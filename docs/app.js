@@ -10,33 +10,54 @@ function createPostElement(item) {
     const post = item.post;
     const article = document.createElement("article");
     article.className = "post-card";
+    const isSpecialPost = post.post_type === "special";
 
-    const title = document.createElement("h3");
-    title.className = "post-header";
-    title.textContent = `#${post.id} - ${post.title}`;
+    if (isSpecialPost) {
+        const author = document.createElement("div");
+        author.className = "special-author";
+
+        const authorThumbnail = (post.thumbnail || "").trim();
+        if (authorThumbnail) {
+            const avatar = document.createElement("img");
+            avatar.className = "special-author-avatar";
+            avatar.src = authorThumbnail;
+            avatar.alt = `${post.title} profile image`;
+            avatar.loading = "lazy";
+            author.appendChild(avatar);
+        } else {
+            const avatarPlaceholder = document.createElement("span");
+            avatarPlaceholder.className = "special-author-avatar-placeholder";
+            avatarPlaceholder.textContent = (post.title || "?").slice(0, 1).toUpperCase();
+            author.appendChild(avatarPlaceholder);
+        }
+
+        const authorName = document.createElement("p");
+        authorName.className = "special-author-name";
+        authorName.textContent = post.title || `Post #${post.id}`;
+        author.appendChild(authorName);
+        article.appendChild(author);
+    } else {
+        const title = document.createElement("h3");
+        title.className = "post-header";
+        title.textContent = `#${post.id} - ${post.title}`;
+        article.appendChild(title);
+    }
 
     const summary = document.createElement("p");
     summary.className = "post-summary";
-    summary.textContent = post.summary;
+    summary.textContent = isSpecialPost
+        ? (post.post_text || post.summary)
+        : post.summary;
 
     const thumbnail = (post.thumbnail || "").trim();
     let image = null;
-    if (thumbnail) {
+    if (thumbnail && !isSpecialPost) {
         image = document.createElement("img");
         image.className = "post-thumbnail";
         image.src = thumbnail;
         image.alt = post.title || "Post thumbnail";
         image.loading = "lazy";
     }
-
-    const tags = document.createElement("div");
-    tags.className = "post-tags";
-    item.matchedCategories.forEach(category => {
-        const tag = document.createElement("span");
-        tag.className = "tag";
-        tag.textContent = category;
-        tags.appendChild(tag);
-    });
 
     const source = document.createElement("a");
     source.className = "post-link";
@@ -45,12 +66,9 @@ function createPostElement(item) {
     source.rel = "noopener noreferrer";
     source.textContent = "Source";
 
-    article.append(title, summary);
+    article.appendChild(summary);
     if (image) {
         article.appendChild(image);
-    }
-    if (item.matchedCategories.length > 0) {
-        article.appendChild(tags);
     }
     article.appendChild(source);
     return article;
@@ -98,11 +116,10 @@ function buildFeedItems(dataset, selectedCategories) {
         });
     });
 
-    items.sort((a, b) => {
-        const left = new Date(a.post.updated_at || 0).getTime();
-        const right = new Date(b.post.updated_at || 0).getTime();
-        return right - left;
-    });
+    for (let index = items.length - 1; index > 0; index -= 1) {
+        const randomIndex = Math.floor(Math.random() * (index + 1));
+        [items[index], items[randomIndex]] = [items[randomIndex], items[index]];
+    }
 
     return items;
 }
@@ -116,11 +133,7 @@ function updateFeedStatus() {
         status.textContent = "No posts found for the selected categories.";
         return;
     }
-    if (feedCursor >= feedItems.length) {
-        status.textContent = `Showing all ${feedItems.length} posts.`;
-        return;
-    }
-    status.textContent = `Showing ${feedCursor} of ${feedItems.length} posts. Scroll for more.`;
+    status.textContent = "";
 }
 
 function renderNextBatch() {
