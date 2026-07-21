@@ -112,21 +112,63 @@ function clearRequestedPostSelection() {
     window.history.replaceState({}, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
 }
 
+function applyLikedPostsSearch() {
+    const likedPostsStatus = document.getElementById("profile-liked-posts-status");
+    const likedPostsList = document.getElementById("profile-liked-posts");
+    const likedPostsSearch = document.getElementById("profile-liked-posts-search");
+    if (!likedPostsStatus || !likedPostsList || !likedPostsSearch) {
+        return;
+    }
+
+    const items = Array.from(likedPostsList.querySelectorAll(".profile-liked-post-item"));
+    const totalCount = items.length;
+    if (totalCount === 0) {
+        likedPostsSearch.value = "";
+        likedPostsSearch.disabled = true;
+        likedPostsStatus.textContent = "No liked posts yet.";
+        return;
+    }
+
+    likedPostsSearch.disabled = false;
+    const query = likedPostsSearch.value.trim().toLowerCase();
+    let visibleCount = 0;
+
+    items.forEach(item => {
+        const itemText = item.textContent ? item.textContent.toLowerCase() : "";
+        const matches = !query || itemText.includes(query);
+        item.classList.toggle("hidden", !matches);
+        if (matches) {
+            visibleCount += 1;
+        }
+    });
+
+    if (!query) {
+        likedPostsStatus.textContent = `${formatCount(totalCount)} liked posts`;
+        return;
+    }
+
+    if (visibleCount === 0) {
+        likedPostsStatus.textContent = `No liked posts found for "${likedPostsSearch.value.trim()}".`;
+        return;
+    }
+
+    likedPostsStatus.textContent = `${formatCount(visibleCount)} of ${formatCount(totalCount)} liked posts`;
+}
+
 async function renderLikedPostsList() {
     const likedPostsStatus = document.getElementById("profile-liked-posts-status");
     const likedPostsList = document.getElementById("profile-liked-posts");
-    if (!likedPostsStatus || !likedPostsList) {
+    const likedPostsSearch = document.getElementById("profile-liked-posts-search");
+    if (!likedPostsStatus || !likedPostsList || !likedPostsSearch) {
         return;
     }
 
     likedPostsList.innerHTML = "";
     const likedIds = Array.from(likedPostIds).reverse();
     if (likedIds.length === 0) {
-        likedPostsStatus.textContent = "No liked posts yet.";
+        applyLikedPostsSearch();
         return;
     }
-
-    likedPostsStatus.textContent = `${formatCount(likedIds.length)} liked posts`;
 
     likedIds.forEach(id => {
         const item = document.createElement("li");
@@ -142,6 +184,8 @@ async function renderLikedPostsList() {
         likedPostsList.appendChild(item);
     });
 
+    applyLikedPostsSearch();
+
     try {
         const dataset = await ensureDatasetLoaded();
         const postsById = dataset.articles_by_id || dataset.posts_by_id || {};
@@ -153,6 +197,7 @@ async function renderLikedPostsList() {
                 link.textContent = `#${postId} - ${post.title}`;
             }
         });
+        applyLikedPostsSearch();
     } catch {
         // Keep fallback labels when dataset is unavailable.
     }
@@ -632,6 +677,7 @@ async function initializePage() {
     const profileStatus = document.getElementById("profile-category-status");
     const profileSaveButton = document.getElementById("profile-save-button");
     const profileDeleteButton = document.getElementById("profile-delete-button");
+    const likedPostsSearch = document.getElementById("profile-liked-posts-search");
     const renderProfileSelectors = preselected => {
         feedCategorySelection = renderCategoryOptions(
             "category-options",
@@ -650,6 +696,9 @@ async function initializePage() {
     };
     renderProfileSelectors(profile.preferred_categories);
     ensureStatsElementsUpdated();
+    if (likedPostsSearch) {
+        likedPostsSearch.addEventListener("input", applyLikedPostsSearch);
+    }
     await renderLikedPostsList();
 
     gateForm.addEventListener("submit", async event => {

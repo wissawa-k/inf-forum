@@ -365,6 +365,31 @@ button:disabled {
     font-size: 1rem;
 }
 
+.profile-liked-posts-search {
+    margin-top: 0.55rem;
+    width: 100%;
+    border: 1px solid #2f3336;
+    background: #111214;
+    color: #e7e9ea;
+    border-radius: 999px;
+    padding: 0.45rem 0.75rem;
+    font: inherit;
+}
+
+.profile-liked-posts-search::placeholder {
+    color: #71767b;
+}
+
+.profile-liked-posts-search:focus-visible {
+    outline: 2px solid #1d9bf0;
+    outline-offset: 1px;
+}
+
+.profile-liked-posts-search:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
 .profile-liked-posts-list {
     margin: 0.5rem 0 0;
     padding: 0;
@@ -379,6 +404,29 @@ button:disabled {
 
 .profile-liked-post-link {
     display: inline-block;
+}
+
+.info-qr-wrap {
+    margin-top: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.info-qr-label {
+    margin: 0 0 0.6rem;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #e7e9ea;
+    text-align: center;
+}
+
+.info-qr-image {
+    width: min(80vw, 80vh);
+    max-width: 100%;
+    height: auto;
+    display: block;
 }
 
 .danger-button {
