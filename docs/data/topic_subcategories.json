@@ -1,0 +1,36 @@
+{
+  "generated_at": "2026-07-21T17:49:43.561360+00:00",
+  "min_categories": 15,
+  "topic_count": 1,
+  "topics": [
+    {
+      "name": "Books",
+      "subcategories": [
+        "Poetry books",
+        "Horror books",
+        "History books",
+        "Fiction books",
+        "Self-help books",
+        "Fictional books",
+        "History of books",
+        "Children's books",
+        "Young adult books",
+        "Non-fiction books",
+        "1920s poetry books",
+        "1830s poetry books",
+        "1800s poetry books",
+        "Fantasy Press books",
+        "1920s fiction books"
+      ],
+      "subcategory_count": 15,
+      "source_stats": {
+        "crawled_candidates": 42,
+        "llm_candidates": 0,
+        "llm_refined_candidates": 0,
+        "llm_selected": 0,
+        "llm_refined_selected": 0,
+        "crawl_selected": 15
+      }
+    }
+  ]
+}

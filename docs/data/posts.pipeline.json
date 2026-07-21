@@ -1,0 +1,45 @@
+{
+  "generated_at": "2026-07-21T17:07:31.626094+00:00",
+  "model": "qwen3:8b",
+  "total_posts": 1,
+  "stats": {
+    "normal_posts": 1,
+    "special_posts": 0
+  },
+  "posts_by_id": {
+    "1": {
+      "id": 1,
+      "title": "Medical museum",
+      "description": "",
+      "summary": "A medical museum is an institution that stores and exhibits objects of historical, scientific, artistic, or cultural interest that have a link to medicine or health. Displays often include models, instruments, books and manuscripts, as well as medical images and the technologies used to capture them. Some museums reflect specialized medical areas, such as dentistry, nursing, this history of specific hospitals, and historic pharmacies.",
+      "source": "https://en.wikipedia.org/wiki/Medical_museum",
+      "updated_at": "2025-12-01T16:53:34Z",
+      "thumbnail": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Medicinhistoriska_museet_Stockholm.JPG/330px-Medicinhistoriska_museet_Stockholm.JPG",
+      "categories": [
+        "Medical museums"
+      ],
+      "post_type": "normal",
+      "post_text": "A medical museum is an institution that stores and exhibits objects of historical, scientific, artistic, or cultural interest that have a link to medicine or health. Displays often include models, instruments, books and…"
+    }
+  },
+  "categories": {
+    "History museums": [],
+    "Science museums": [],
+    "Natural history museums": [],
+    "Children's museums": [],
+    "Maritime museums": [],
+    "Military and war museums": [],
+    "Railway museums": [],
+    "Design museums": [],
+    "Archaeological museums": [],
+    "Technology museums": [],
+    "Ethnographic museums": [],
+    "Biographical museums": [],
+    "Open-air museums": [],
+    "University museums": [],
+    "Medical museums": [
+      1
+    ],
+    "Numismatic museums": []
+  }
+}

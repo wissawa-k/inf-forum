@@ -37,6 +37,26 @@ function formatDuration(totalSeconds) {
     return `${minutes}m ${secs}s`;
 }
 
+function applySiteConfig(siteConfig) {
+    if (!siteConfig || typeof siteConfig !== "object") {
+        return;
+    }
+    const title = typeof siteConfig.title === "string" ? siteConfig.title.trim() : "";
+    if (!title) {
+        return;
+    }
+
+    document.title = title;
+    const titleElement = document.getElementById("home-title-button");
+    if (titleElement) {
+        titleElement.textContent = title;
+    }
+    const logo = document.getElementById("home-logo-button");
+    if (logo) {
+        logo.alt = `${title} logo`;
+    }
+}
+
 function createDefaultProfile() {
     return {
         preferred_categories: [],
@@ -669,6 +689,16 @@ function setupSessionTracking() {
 }
 
 async function initializePage() {
+    try {
+        const siteConfigResponse = await fetch("./data/site_config.json", { cache: "no-store" });
+        if (siteConfigResponse.ok) {
+            const siteConfig = await siteConfigResponse.json();
+            applySiteConfig(siteConfig);
+        }
+    } catch {
+        // Site config is optional.
+    }
+
     profile = loadProfile();
     seenPostIds = new Set(profile.stats.seen_post_ids || []);
     likedPostIds = new Set(profile.stats.liked_post_ids || []);

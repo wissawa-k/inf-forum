@@ -35,3 +35,29 @@ This makes the project highly portable, scalable, and resilient, while still del
 ## Goal
 
 To make learning feel as natural and engaging as scrolling—transforming passive browsing time into moments of discovery.
+
+## One-File Configuration
+
+You can configure and run the full fetch pipeline from one root file:
+
+- Config file: `fetch.config.json`
+- Runner command: `python3 fetch.py`
+
+Basic flow:
+
+1. Edit `fetch.config.json`:
+   - `project.title` for app title
+   - `topics` for your broad topic list
+   - `pipeline` for crawl/model/output behavior
+2. Run `python3 fetch.py`
+
+Useful commands:
+
+- `python3 fetch.py --dry-run` to print the generated pipeline command
+- `python3 fetch.py --manual` for quick usage help
+
+The runner writes:
+
+- Topic input JSON to `input/topics.json` (or configured path)
+- Site config JSON to `docs/data/site_config.json` (or configured path)
+- Final posts JSON to `docs/data/posts.json` (or configured path)

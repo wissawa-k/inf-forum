@@ -68,6 +68,29 @@ ACHIEVEMENT_KEYWORDS = {
 }
 
 
+def render_progress(
+    label: str,
+    current: int,
+    total: int,
+    extra: str = "",
+    done: bool = False,
+) -> None:
+    if total < 1:
+        return
+
+    ratio = min(max(current / total, 0.0), 1.0)
+    width = 30
+    filled = int(width * ratio)
+    bar = "#" * filled + "-" * (width - filled)
+    suffix = f" {extra}" if extra else ""
+    message = f"\r{label} [{bar}] {current}/{total} ({ratio * 100:5.1f}%){suffix}"
+
+    if done:
+        print("", file=sys.stderr)
+        return
+    print(message, end="", file=sys.stderr, flush=True)
+
+
 def split_sentences(text: str) -> list[str]:
     parts = re.split(r"(?<=[.!?])\s+", text.strip())
     return [part.strip() for part in parts if part.strip()]
@@ -281,7 +304,8 @@ def build_articles(
     categories_to_ids: dict[str, list[int]] = {category: [] for category in titles_by_category}
     next_id = 1
 
-    for title in unique_titles:
+    for index, title in enumerate(unique_titles, start=1):
+        render_progress("Fetching summaries", index - 1, len(unique_titles))
         summary_data = cache.get(title)
         if summary_data is None:
             summary_data = fetch_wikipedia_summary(title)
@@ -311,6 +335,15 @@ def build_articles(
         for category in categories:
             categories_to_ids.setdefault(category, []).append(next_id)
         next_id += 1
+        render_progress("Fetching summaries", index, len(unique_titles))
+
+    render_progress(
+        "Fetching summaries",
+        len(unique_titles),
+        len(unique_titles),
+        extra=f"kept={len(articles)}",
+        done=True,
+    )
 
     return articles, categories_to_ids, cache
 
@@ -371,6 +404,14 @@ def generate_special_posts_with_ollama(
 
     for offset in range(0, len(special_articles), batch_size):
         batch = special_articles[offset : offset + batch_size]
+        batch_index = (offset // batch_size) + 1
+        total_batches = (len(special_articles) + batch_size - 1) // batch_size
+        render_progress(
+            "LLM special posts",
+            batch_index - 1,
+            total_batches,
+            extra=f"batch_size={len(batch)}",
+        )
         prompt_items = []
         for article in batch:
             prompt_items.append(
@@ -440,6 +481,15 @@ def generate_special_posts_with_ollama(
             if not isinstance(text, str) or not text.strip():
                 raise ValueError(f"LLM returned empty post_text for id={article['id']}")
             article["post_text"] = sanitize_text(text, 220)
+
+        render_progress("LLM special posts", batch_index, total_batches)
+
+    render_progress(
+        "LLM special posts",
+        (len(special_articles) + batch_size - 1) // batch_size,
+        (len(special_articles) + batch_size - 1) // batch_size,
+        done=True,
+    )
 
 
 def set_normal_post_text(articles: list[dict[str, Any]]) -> None:

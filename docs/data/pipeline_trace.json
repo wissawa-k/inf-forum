@@ -1,0 +1,18 @@
+{
+  "started_at": "2026-07-21T17:48:41.353128+00:00",
+  "full": false,
+  "stages_requested": [
+    "topic-subcategories"
+  ],
+  "overwrite": true,
+  "with_recategorize": false,
+  "stages": [
+    {
+      "name": "topic-subcategories",
+      "duration_seconds": 62.237,
+      "output": "/home/zt/projects/inf-forum/docs/data/topic_subcategories.json"
+    }
+  ],
+  "failed": false,
+  "finished_at": "2026-07-21T17:49:43.590252+00:00"
+}

@@ -1,0 +1,28 @@
+{
+  "project": {
+    "title": "INF Forum"
+  },
+  "topics": [
+    "Dinosaur"
+  ],
+  "paths": {
+    "topics_input": "input/topics.json",
+    "output_posts": "docs/data/posts.json",
+    "site_config": "docs/data/site_config.json"
+  },
+  "pipeline": {
+    "mode": "full",
+    "overwrite": true,
+    "with_recategorize": false,
+    "no_llm_subcategories": false,
+    "model": "qwen3:8b",
+    "llm_model": "qwen3:8b",
+    "llm_suggestions": 30,
+    "min_categories": 18,
+    "crawl_depth": 1,
+    "max_nodes": 120,
+    "titles_per_category": 300,
+    "batch_size": 12,
+    "days": 30
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "generated_at": "2026-07-21T17:13:48.374530+00:00",
+  "source": "topic_pipeline",
+  "topic_input": "/home/zt/projects/inf-forum/input/topics.json",
+  "topic_subcategories_file": "/home/zt/projects/inf-forum/docs/data/topic_subcategories.json",
+  "category_count": 9,
+  "total_titles": 9,
+  "categories": {
+    "Dinosaur genera": [
+      "Aardonyx"
+    ],
+    "Dinosaur families": [
+      "Abelisauridae"
+    ],
+    "Dinosaur clades": [
+      "Ankylopollexia"
+    ],
+    "Dinosaur eggs": [
+      "Bird egg"
+    ],
+    "Fossil taxa described in 2020": [
+      "Abdarainurus"
+    ],
+    "Fossil taxa described in 2021": [
+      "Aclistophasma"
+    ],
+    "Fossil taxa described in 2022": [
+      "Abditosaurus"
+    ],
+    "Paleontological sites": [
+      "List of fossil sites"
+    ],
+    "Dinosaur museums": [
+      "Aathal Dinosaur Museum"
+    ]
+  }
+}
