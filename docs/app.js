@@ -15,8 +15,12 @@ let statsFlushTimer = null;
 let hasEnteredFeed = false;
 let feedCategorySelection = new Set();
 let profileCategorySelection = new Set();
+let likedPostIds = new Set();
 let currentView = "gate";
 let requestedPostId = null;
+let feedScrollPosition = 0;
+let shouldRestoreFeedScroll = false;
+let resetFeedScrollOnNextView = false;
 
 function formatCount(value) {
     return new Intl.NumberFormat("en-US").format(Math.max(0, Number(value) || 0));
@@ -38,6 +42,7 @@ function createDefaultProfile() {
         preferred_categories: [],
         stats: {
             seen_post_ids: [],
+            liked_post_ids: [],
             posts_seen_count: 0,
             total_time_seconds: 0,
             sessions: 0,
@@ -66,10 +71,14 @@ function loadProfile() {
         const seenIds = Array.isArray(stats.seen_post_ids)
             ? stats.seen_post_ids.map(value => String(value))
             : [];
+        const likedIds = Array.isArray(stats.liked_post_ids)
+            ? stats.liked_post_ids.map(value => String(value))
+            : [];
         return {
             preferred_categories: Array.from(new Set(preferredCategories)),
             stats: {
                 seen_post_ids: Array.from(new Set(seenIds)),
+                liked_post_ids: Array.from(new Set(likedIds)),
                 posts_seen_count: Math.max(0, Number(stats.posts_seen_count) || 0),
                 total_time_seconds: Math.max(0, Number(stats.total_time_seconds) || 0),
                 sessions: Math.max(0, Number(stats.sessions) || 0),
@@ -83,12 +92,69 @@ function loadProfile() {
 
 function saveProfile() {
     profile.stats.seen_post_ids = Array.from(seenPostIds);
+    profile.stats.liked_post_ids = Array.from(likedPostIds);
     profile.stats.posts_seen_count = profile.stats.seen_post_ids.length;
     profile.stats.last_active_at = new Date().toISOString();
     try {
         window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
     } catch {
         // Ignore storage failures so rendering still works.
+    }
+}
+
+function clearRequestedPostSelection() {
+    if (!requestedPostId) {
+        return;
+    }
+    requestedPostId = null;
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.delete("id");
+    window.history.replaceState({}, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+}
+
+async function renderLikedPostsList() {
+    const likedPostsStatus = document.getElementById("profile-liked-posts-status");
+    const likedPostsList = document.getElementById("profile-liked-posts");
+    if (!likedPostsStatus || !likedPostsList) {
+        return;
+    }
+
+    likedPostsList.innerHTML = "";
+    const likedIds = Array.from(likedPostIds).reverse();
+    if (likedIds.length === 0) {
+        likedPostsStatus.textContent = "No liked posts yet.";
+        return;
+    }
+
+    likedPostsStatus.textContent = `${formatCount(likedIds.length)} liked posts`;
+
+    likedIds.forEach(id => {
+        const item = document.createElement("li");
+        item.className = "profile-liked-post-item";
+
+        const link = document.createElement("a");
+        link.className = "profile-liked-post-link";
+        link.href = `?id=${encodeURIComponent(id)}`;
+        link.dataset.postId = id;
+        link.textContent = `Post #${id}`;
+
+        item.appendChild(link);
+        likedPostsList.appendChild(item);
+    });
+
+    try {
+        const dataset = await ensureDatasetLoaded();
+        const postsById = dataset.articles_by_id || dataset.posts_by_id || {};
+        const links = likedPostsList.querySelectorAll(".profile-liked-post-link");
+        links.forEach(link => {
+            const postId = link.dataset.postId || "";
+            const post = postsById[postId];
+            if (post && post.title) {
+                link.textContent = `#${postId} - ${post.title}`;
+            }
+        });
+    } catch {
+        // Keep fallback labels when dataset is unavailable.
     }
 }
 
@@ -174,6 +240,49 @@ function trackPostSeen(post) {
     ensureStatsElementsUpdated();
 }
 
+function createLikeButton(post) {
+    const postId = String(post.id ?? "");
+    const baseLikeCount = Math.max(0, Number(post.like_count) || 0);
+    let isLiked = postId ? likedPostIds.has(postId) : false;
+
+    const likesButton = document.createElement("button");
+    likesButton.type = "button";
+    likesButton.className = "post-like-button";
+
+    const heartIcon = document.createElement("span");
+    heartIcon.className = "post-interaction-icon post-like-icon";
+    heartIcon.setAttribute("aria-hidden", "true");
+
+    const likeCountLabel = document.createElement("span");
+    likeCountLabel.className = "post-like-count";
+
+    const updateLikeState = () => {
+        likesButton.classList.toggle("is-liked", isLiked);
+        heartIcon.classList.toggle("is-liked", isLiked);
+        likesButton.setAttribute("aria-pressed", isLiked ? "true" : "false");
+        likesButton.setAttribute("aria-label", isLiked ? "Unlike post" : "Like post");
+        likeCountLabel.textContent = `Likes ${formatCount(baseLikeCount + (isLiked ? 1 : 0))}`;
+    };
+
+    likesButton.addEventListener("click", () => {
+        isLiked = !isLiked;
+        if (postId) {
+            if (isLiked) {
+                likedPostIds.add(postId);
+            } else {
+                likedPostIds.delete(postId);
+            }
+            saveProfile();
+            void renderLikedPostsList();
+        }
+        updateLikeState();
+    });
+
+    updateLikeState();
+    likesButton.append(heartIcon, likeCountLabel);
+    return likesButton;
+}
+
 function createPostElement(item) {
     const post = item.post;
     const article = document.createElement("article");
@@ -239,11 +348,18 @@ function createPostElement(item) {
 
     const views = document.createElement("span");
     views.className = "post-interaction";
-    views.textContent = `Views ${formatCount(post.view_count)}`;
 
-    const likes = document.createElement("span");
-    likes.className = "post-interaction";
-    likes.textContent = `Likes ${formatCount(post.like_count)}`;
+    const viewIcon = document.createElement("span");
+    viewIcon.className = "post-interaction-icon post-view-icon";
+    viewIcon.setAttribute("aria-hidden", "true");
+
+    const viewCount = Math.max(1, Number(post.view_count) || 0);
+    const viewLabel = document.createElement("span");
+    viewLabel.textContent = `Views ${formatCount(viewCount)}`;
+
+    views.append(viewIcon, viewLabel);
+
+    const likes = createLikeButton(post);
 
     interactions.append(views, likes);
 
@@ -392,6 +508,12 @@ function updateHeaderNav() {
 }
 
 function showView(view) {
+    const previousView = currentView;
+    if (previousView === "feed" && view !== "feed") {
+        feedScrollPosition = window.scrollY;
+        shouldRestoreFeedScroll = true;
+    }
+
     const gate = document.getElementById("category-gate");
     const content = document.getElementById("content");
     const profilePage = document.getElementById("profile-page");
@@ -418,13 +540,36 @@ function showView(view) {
         profilePage.classList.add("hidden");
         infoPage.classList.add("hidden");
     }
+
+    if (view === "feed") {
+        window.requestAnimationFrame(() => {
+            if (resetFeedScrollOnNextView) {
+                window.scrollTo(0, 0);
+                feedScrollPosition = 0;
+                shouldRestoreFeedScroll = false;
+                resetFeedScrollOnNextView = false;
+                return;
+            }
+            if (shouldRestoreFeedScroll) {
+                window.scrollTo(0, feedScrollPosition);
+            }
+        });
+    } else {
+        window.requestAnimationFrame(() => {
+            window.scrollTo(0, 0);
+        });
+    }
+
     updateHeaderNav();
 }
 
-async function openFeedWithCategories(selectedCategories) {
+async function openFeedWithCategories(selectedCategories, options = {}) {
+    const { showFeedView = true } = options;
     const categoryList = Array.from(new Set(selectedCategories));
     if (categoryList.length < MIN_SELECTED_CATEGORIES && !requestedPostId) {
-        showView("gate");
+        if (showFeedView) {
+            showView("gate");
+        }
         return false;
     }
 
@@ -435,7 +580,9 @@ async function openFeedWithCategories(selectedCategories) {
     const container = document.getElementById("posts");
     container.innerHTML = "";
     hasEnteredFeed = true;
-    showView("feed");
+    if (showFeedView) {
+        showView("feed");
+    }
 
     if (requestedPostId) {
         renderSinglePost(dataset, requestedPostId);
@@ -470,6 +617,7 @@ function setupSessionTracking() {
 async function initializePage() {
     profile = loadProfile();
     seenPostIds = new Set(profile.stats.seen_post_ids || []);
+    likedPostIds = new Set(profile.stats.liked_post_ids || []);
     requestedPostId = new URLSearchParams(window.location.search).get("id");
 
     const categoriesResponse = await fetch("./data/categories.json");
@@ -502,6 +650,7 @@ async function initializePage() {
     };
     renderProfileSelectors(profile.preferred_categories);
     ensureStatsElementsUpdated();
+    await renderLikedPostsList();
 
     gateForm.addEventListener("submit", async event => {
         event.preventDefault();
@@ -524,6 +673,9 @@ async function initializePage() {
         profile.preferred_categories = Array.from(profileCategorySelection);
         saveProfile();
         renderProfileSelectors(profile.preferred_categories);
+        clearRequestedPostSelection();
+        resetFeedScrollOnNextView = true;
+        await openFeedWithCategories(profile.preferred_categories, { showFeedView: false });
         profileStatus.textContent = "Profile saved.";
         ensureStatsElementsUpdated();
     });
@@ -537,12 +689,13 @@ async function initializePage() {
 
         profile = createDefaultProfile();
         seenPostIds = new Set();
+        likedPostIds = new Set();
         feedItems = [];
         feedCursor = 0;
         hasEnteredFeed = false;
         sessionCarryMs = 0;
         sessionLastTickMs = Date.now();
-        requestedPostId = null;
+        clearRequestedPostSelection();
 
         try {
             window.localStorage.removeItem(PROFILE_STORAGE_KEY);
@@ -552,6 +705,7 @@ async function initializePage() {
 
         renderProfileSelectors([]);
         ensureStatsElementsUpdated();
+        void renderLikedPostsList();
         document.getElementById("posts").innerHTML = "";
         document.getElementById("feed-status").textContent = "";
         document.getElementById("scroll-sentinel").textContent = "";
@@ -562,8 +716,14 @@ async function initializePage() {
     document.getElementById("profile-nav-button").addEventListener("click", () => {
         showView("profile");
         ensureStatsElementsUpdated();
+        void renderLikedPostsList();
     });
     document.getElementById("feed-nav-button").addEventListener("click", async () => {
+        if (requestedPostId) {
+            clearRequestedPostSelection();
+            await openFeedWithCategories(profile.preferred_categories);
+            return;
+        }
         if (!hasEnteredFeed && profile.preferred_categories.length < MIN_SELECTED_CATEGORIES && !requestedPostId) {
             showView("gate");
             return;
