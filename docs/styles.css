@@ -56,6 +56,11 @@ body {
     flex: 0 0 auto;
 }
 
+#home-logo-button,
+#home-title-button {
+    cursor: pointer;
+}
+
 .site-nav {
     margin-top: 0.7rem;
     display: flex;
@@ -231,11 +236,19 @@ button:disabled {
 }
 
 .post-thumbnail {
+    width: 100%;
+    border-radius: 12px;
+    display: block;
+}
+
+.post-thumbnail-frame {
     margin-top: 0.7rem;
     width: min(100%, 420px);
+    padding: 0.3rem;
     border-radius: 14px;
-    border: 1px solid #2f3336;
-    display: block;
+    border: 1px solid #3b4045;
+    background: #111214;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
 }
 
 .post-tags {

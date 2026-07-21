@@ -373,12 +373,17 @@ function createPostElement(item) {
 
     const thumbnail = (post.thumbnail || "").trim();
     let image = null;
+    let imageFrame = null;
     if (thumbnail && !isSpecialPost) {
         image = document.createElement("img");
         image.className = "post-thumbnail";
         image.src = thumbnail;
         image.alt = post.title || "Post thumbnail";
         image.loading = "lazy";
+
+        imageFrame = document.createElement("div");
+        imageFrame.className = "post-thumbnail-frame";
+        imageFrame.appendChild(image);
     }
 
     const source = document.createElement("a");
@@ -413,8 +418,8 @@ function createPostElement(item) {
     footer.append(source, interactions);
 
     article.appendChild(summary);
-    if (image) {
-        article.appendChild(image);
+    if (imageFrame) {
+        article.appendChild(imageFrame);
     }
     article.appendChild(footer);
     return article;
@@ -550,6 +555,10 @@ function updateHeaderNav() {
     feedButton.classList.toggle("active-nav", currentView === "feed");
     profileButton.classList.toggle("active-nav", currentView === "profile");
     infoButton.classList.toggle("active-nav", currentView === "info");
+}
+
+function canAccessProfilePage() {
+    return profile.preferred_categories.length >= MIN_SELECTED_CATEGORIES;
 }
 
 function showView(view) {
@@ -762,12 +771,7 @@ async function initializePage() {
         showView("gate");
     });
 
-    document.getElementById("profile-nav-button").addEventListener("click", () => {
-        showView("profile");
-        ensureStatsElementsUpdated();
-        void renderLikedPostsList();
-    });
-    document.getElementById("feed-nav-button").addEventListener("click", async () => {
+    const openFeedFromNav = async () => {
         if (requestedPostId) {
             clearRequestedPostSelection();
             await openFeedWithCategories(profile.preferred_categories);
@@ -782,6 +786,31 @@ async function initializePage() {
             return;
         }
         showView("feed");
+    };
+
+    const homeLogoButton = document.getElementById("home-logo-button");
+    const homeTitleButton = document.getElementById("home-title-button");
+    const handleHomeNavClick = async () => {
+        await openFeedFromNav();
+    };
+    homeLogoButton.addEventListener("click", handleHomeNavClick);
+    homeTitleButton.addEventListener("click", handleHomeNavClick);
+
+    document.getElementById("profile-nav-button").addEventListener("click", async () => {
+        if (!canAccessProfilePage()) {
+            if (currentView === "info") {
+                await openFeedFromNav();
+                return;
+            }
+            showView("gate");
+            return;
+        }
+        showView("profile");
+        ensureStatsElementsUpdated();
+        void renderLikedPostsList();
+    });
+    document.getElementById("feed-nav-button").addEventListener("click", async () => {
+        await openFeedFromNav();
     });
     document.getElementById("info-nav-button").addEventListener("click", () => {
         showView("info");
